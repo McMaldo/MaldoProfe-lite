@@ -1,9 +1,26 @@
-const DATA_URL =
-	"https://raw.githubusercontent.com/McMaldo/MaldoProfe/refs/heads/main/src/data/links.json";
+
+const DATA_BASE_URL =
+	"https://raw.githubusercontent.com/McMaldo/MaldoProfe/refs/heads/main/public/data/";
+const INDEX_URL =
+	DATA_BASE_URL + "links.json";
 
 async function init() {
-	const res = await fetch(DATA_URL);
-	const DATA = await res.json();
+	const res = await fetch(INDEX_URL);
+	const INDEX = await res.json();
+
+	const yearCache = new Map();
+	const loadedSections = new Set();
+
+	async function fetchYearData(id) {
+		if (yearCache.has(id)) return yearCache.get(id);
+		const res = await fetch(`${DATA_BASE_URL}${id}.json`);
+		if (!res.ok) {
+			throw new Error(`No se pudo cargar ${id}.json (${res.status})`);
+		}
+		const data = await res.json();
+		yearCache.set(id, data);
+		return data;
+	}
 
 	function getLinkType(name, href) {
 		const n = name.toUpperCase();
@@ -146,17 +163,17 @@ async function init() {
 		}
 
 		// Ordenar por fecha y quedarse con los últimos 3
-		const withDate = visibleLinks.filter(l => l.href && l.date);
+		const withDate = visibleLinks.filter((l) => l.href && l.date);
 		withDate.sort((a, b) => {
 			const [ad, am] = a.date.split("/").map(Number);
 			const [bd, bm] = b.date.split("/").map(Number);
-			const dateA = new Date(yearId.split("-")[0], am - 1, ad);
-			const dateB = new Date(yearId.split("-")[0], bm - 1, bd);
+			const dateA = new Date(yearId, am - 1, ad);
+			const dateB = new Date(yearId, bm - 1, bd);
 			return dateB - dateA; // más reciente primero
 		});
 		const lastThree = new Set(withDate.slice(0, 3));
 
-		const finalLinks = visibleLinks.filter(l => l.href && lastThree.has(l));
+		const finalLinks = visibleLinks.filter((l) => l.href && lastThree.has(l));
 
 		if (finalLinks.length === 0) {
 			list.innerHTML = '<div class="empty-links">Sin materiales aún</div>';
@@ -201,70 +218,126 @@ async function init() {
 		return card;
 	}
 
-	function buildYearSection(yearData) {
+	function buildPlaceholderSection(id, name) {
 		const section = document.createElement("section");
 		section.className = "year-section";
-		section.id = `year-${yearData.id}`;
+		section.id = `year-${id}`;
+		section.innerHTML = `
+			<div class="year-header">
+				<h1><i class="fa-solid fa-calendar" aria-hidden="true"></i> ${name}</h1>
+				<p>Cargando...</p>
+			</div>
+			<div class="courses-grid">
+				<div class="empty-links"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Cargando cursos...</div>
+			</div>
+		`;
+		return section;
+	}
 
-		const year = yearData.id;
-		const isCurrentYear = year === "2026";
+	function buildErrorSection(id, name) {
+		const section = document.createElement("section");
+		section.className = "year-section";
+		section.id = `year-${id}`;
+		section.innerHTML = `
+			<div class="year-header">
+				<h1><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ${name}</h1>
+				<p>No se pudieron cargar los cursos</p>
+			</div>
+			<div class="courses-grid">
+				<div class="empty-links">Ocurrió un error al cargar este año. Probá recargar la página.</div>
+			</div>
+		`;
+		return section;
+	}
+
+	function buildYearSection(yearData, fallbackId) {
+		const section = document.createElement("section");
+		section.className = "year-section";
+		const id = yearData.id || fallbackId;
+		section.id = `year-${id}`;
+
+		const yearNum = id.split("-")[0];
+		const currentYearNum = String(new Date().getFullYear());
+		const isCurrentYear = yearNum === currentYearNum;
 		const headerIcon = isCurrentYear
 			? "fa-solid fa-calendar-check"
 			: "fa-solid fa-calendar";
 
+		const courses = yearData.courses || [];
+
 		section.innerHTML = `
 			<div class="year-header">
 				<h1><i class="${headerIcon}" aria-hidden="true"></i> ${yearData.name}</h1>
-				<p>${yearData.courses.length} curso${yearData.courses.length !== 1 ? "s" : ""} · ${year}</p>
+				<p>${courses.length} curso${courses.length !== 1 ? "s" : ""} · ${yearNum}</p>
 			</div>
 			<div class="courses-grid"></div>
 		`;
 
 		const grid = section.querySelector(".courses-grid");
-		for (const course of yearData.courses) {
-			grid.appendChild(buildCourseCard(course, yearData.id.split("-")[0]));
+		for (const course of courses) {
+			grid.appendChild(buildCourseCard(course, yearNum));
 		}
 
-		console.log("section built:", section.id, section.className);
 		return section;
 	}
 
 	const main = document.getElementById("main");
 	const yearTabs = document.getElementById("yearTabs");
 	const mobileSelect = document.getElementById("mobileYearSelect");
-	let activeYear = DATA[0].id;
+	let activeYear = INDEX[0].id;
 
-	for (const yearData of DATA) {
-		const section = buildYearSection(yearData);
-		main.appendChild(section);
+	// 1) Renderizar tabs + placeholders a partir del índice (liviano, sin cursos todavía)
+	for (const entry of INDEX) {
+		const placeholder = buildPlaceholderSection(entry.id, entry.name);
+		main.appendChild(placeholder);
 
 		const btn = document.createElement("button");
-		btn.className = "year-tab" + (yearData.id === activeYear ? " active" : "");
-		btn.textContent = yearData.id;
-		btn.dataset.year = yearData.id;
-		btn.addEventListener("click", () => switchYear(yearData.id));
+		btn.className = "year-tab" + (entry.id === activeYear ? " active" : "");
+		btn.textContent = entry.name;
+		btn.dataset.year = entry.id;
+		btn.addEventListener("click", () => switchYear(entry.id));
 		yearTabs.appendChild(btn);
 
 		const opt = document.createElement("option");
-		opt.value = yearData.id;
-		opt.textContent = yearData.name;
+		opt.value = entry.id;
+		opt.textContent = entry.name;
 		mobileSelect.appendChild(opt);
 	}
 
-	function switchYear(id) {
+	// 2) Cargar el JSON completo de un año (una sola vez) y reemplazar su placeholder
+	async function ensureYearLoaded(id) {
+		if (loadedSections.has(id)) return;
+		const entry = INDEX.find((e) => e.id === id);
+		try {
+			const data = await fetchYearData(id);
+			const section = buildYearSection(data, id);
+			document.getElementById(`year-${id}`)?.replaceWith(section);
+		} catch (err) {
+			console.error(err);
+			const section = buildErrorSection(id, entry ? entry.name : id);
+			document.getElementById(`year-${id}`)?.replaceWith(section);
+		}
+		loadedSections.add(id);
+	}
+
+	async function switchYear(id) {
 		activeYear = id;
-		document
-			.querySelectorAll(".year-section")
-			.forEach((s) => s.classList.toggle("active", s.id === `year-${id}`));
+
 		document
 			.querySelectorAll(".year-tab")
 			.forEach((b) => b.classList.toggle("active", b.dataset.year === id));
 		mobileSelect.value = id;
+
+		await ensureYearLoaded(id);
+
+		document
+			.querySelectorAll(".year-section")
+			.forEach((s) => s.classList.toggle("active", s.id === `year-${id}`));
 	}
 
 	mobileSelect.addEventListener("change", (e) => switchYear(e.target.value));
 
-	switchYear(activeYear);
+	await switchYear(activeYear);
 
 	const themeToggle = document.getElementById("themeToggle");
 	const themeIcon = document.getElementById("themeIcon");
