@@ -1,3 +1,4 @@
+const BASE_URL = "/MaldoProfe-lite/";
 const DATA_BASE_URL =
 	"https://raw.githubusercontent.com/McMaldo/MaldoProfe/refs/heads/main/";
 const INDEX_URL = DATA_BASE_URL + "src/data/links.json";
@@ -366,7 +367,7 @@ async function init() {
 	const heroImgNumber = getHeroImgNumber(8);
 
 	const heading = document.getElementById("heading");
-	heading.innerHTML = `<img id="hero-img-dark" src="/img/hero-dark-${heroImgNumber}.gif" alt="MaldoProfe"><img id="hero-img-light" src="/img/hero-light-${heroImgNumber}.gif" alt="MaldoProfe"><div id="hero-get-random-img"><i class="fa-solid fa-dice"></i></div>`;
+	heading.innerHTML = `<img id="hero-img-dark" src="${BASE_URL}img/hero-dark-${heroImgNumber}.gif" alt="MaldoProfe"><img id="hero-img-light" src="${BASE_URL}img/hero-light-${heroImgNumber}.gif" alt="MaldoProfe"><div id="hero-get-random-img"><i class="fa-solid fa-dice"></i></div>`;
 
 	document
 		.getElementById("hero-get-random-img")
