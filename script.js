@@ -1,6 +1,6 @@
 const DATA_BASE_URL =
-	"https://raw.githubusercontent.com/McMaldo/MaldoProfe/refs/heads/main/public/data/";
-const INDEX_URL = DATA_BASE_URL + "links.json";
+	"https://raw.githubusercontent.com/McMaldo/MaldoProfe/refs/heads/main/";
+const INDEX_URL = DATA_BASE_URL + "src/data/links.json";
 
 async function init() {
 	const res = await fetch(INDEX_URL);
@@ -11,7 +11,7 @@ async function init() {
 
 	async function fetchYearData(id) {
 		if (yearCache.has(id)) return yearCache.get(id);
-		const res = await fetch(`${DATA_BASE_URL}${id}.json`);
+		const res = await fetch(`${DATA_BASE_URL}public/data/${id}.json`);
 		if (!res.ok) {
 			throw new Error(`No se pudo cargar ${id}.json (${res.status})`);
 		}
