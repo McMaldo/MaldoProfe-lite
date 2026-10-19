@@ -1,8 +1,6 @@
-
 const DATA_BASE_URL =
-	"https://raw.githubusercontent.com/McMaldo/MaldoProfe/refs/heads/main/public/data/";
-const INDEX_URL =
-	DATA_BASE_URL + "links.json";
+	"https://raw.githubusercontent.com/McMaldo/MaldoProfe/refs/heads/main/src/data/";
+const INDEX_URL = DATA_BASE_URL + "links.json";
 
 async function init() {
 	const res = await fetch(INDEX_URL);
